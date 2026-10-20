@@ -1,0 +1,41 @@
+name: Commerce browser QA
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  browser-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Install exact QA dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install Chromium Firefox and WebKit
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Run browser QA
+        run: npm run test:browser
+      - name: Upload browser report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: commerce-browser-qa
+          path: playwright-report
+          retention-days: 14
+      - name: Upload raw results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: commerce-browser-results
+          path: test-results
+          if-no-files-found: ignore
+          retention-days: 14

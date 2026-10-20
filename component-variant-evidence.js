@@ -1,0 +1,231 @@
+const variantAssert=(condition,message)=>{if(!condition)throw new Error(message)};
+const sameVariantIds=(a,b)=>JSON.stringify([...a].sort())===JSON.stringify([...b].sort());
+const escapeVariant=value=>String(value).replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+const PROOF_KINDS=new Set(['rendered','canonical-state','responsive-backed','interaction-backed','action-backed']);
+const VARIANT_EVIDENCE_FILES=['./storefront/component-variant-evidence.json','./storefront/component-variant-evidence-account.json'];
+
+function waitForVariantShowcase(){
+  if(document.documentElement.dataset.showcaseReady==='true')return Promise.resolve();
+  return new Promise((resolve,reject)=>{
+    const onReady=()=>{cleanup();resolve()};
+    const observer=new MutationObserver(()=>{
+      if(document.documentElement.dataset.showcaseReady==='true'){cleanup();resolve()}
+      if(document.documentElement.dataset.showcaseReady==='error'){cleanup();reject(new Error('showcase runtime failed before variant evidence'))}
+    });
+    const cleanup=()=>{document.removeEventListener('nbc:showcase-ready',onReady);observer.disconnect()};
+    document.addEventListener('nbc:showcase-ready',onReady,{once:true});
+    observer.observe(document.documentElement,{attributes:true,attributeFilter:['data-showcase-ready']});
+  });
+}
+
+function renderStateBackedProof(entry,variants){
+  return `<div class="cx-variant-state-proof" data-variant-state-proof="${escapeVariant(entry.id)}"><p class="cx-variant-proof-note"><strong>Canonical state-backed</strong><span>These documented variants reuse the existing live state authority instead of duplicating state markup.</span></p><ul class="cx-variant-state-list">${variants.map(variant=>`<li class="cx-variant-state-ref" data-variant-state-ref="${escapeVariant(variant.id)}" data-state-id="${escapeVariant(variant.stateId)}"><code>${escapeVariant(variant.stateId)}</code><span>${escapeVariant(variant.label)}</span></li>`).join('')}</ul></div>`;
+}
+
+function renderResponsiveBackedProof(entry,variants){
+  return `<div class="cx-variant-state-proof" data-variant-responsive-proof="${escapeVariant(entry.id)}"><p class="cx-variant-proof-note"><strong>Responsive-backed</strong><span>These documented variants reuse the existing live preview and responsive contract; Browser QA changes viewport instead of cloning markup.</span></p><ul class="cx-variant-state-list">${variants.map(variant=>`<li class="cx-variant-state-ref" data-variant-responsive-ref="${escapeVariant(variant.id)}" data-responsive-mode="${escapeVariant(variant.responsiveMode)}" data-responsive-viewport="${escapeVariant(variant.viewport)}"><code>${escapeVariant(variant.viewport)}</code><span>${escapeVariant(variant.label)} · ${escapeVariant(variant.responsiveMode)}</span></li>`).join('')}</ul></div>`;
+}
+
+function renderInteractionBackedProof(entry,variants){
+  return `<div class="cx-variant-state-proof" data-variant-interaction-proof="${escapeVariant(entry.id)}"><p class="cx-variant-proof-note"><strong>Interaction-backed</strong><span>These documented variants are produced by an existing live interaction pattern; static duplicate result markup is intentionally not created.</span></p><ul class="cx-variant-state-list">${variants.map(variant=>`<li class="cx-variant-state-ref" data-variant-interaction-ref="${escapeVariant(variant.id)}" data-interaction-id="${escapeVariant(variant.interactionId)}" data-interaction-state="${escapeVariant(variant.interactionState)}"><code>${escapeVariant(variant.interactionState)}</code><span>${escapeVariant(variant.label)} · ${escapeVariant(variant.interactionId)}</span></li>`).join('')}</ul></div>`;
+}
+
+function renderActionBackedProof(entry,variants){
+  return `<div class="cx-variant-state-proof" data-variant-action-proof="${escapeVariant(entry.id)}"><p class="cx-variant-proof-note"><strong>Action-backed</strong><span>These documented variants depend on a canonical Commerce action and normalized adapter result; provider output is referenced, never fabricated or persisted as demo truth.</span></p><ul class="cx-variant-state-list">${variants.map(variant=>`<li class="cx-variant-state-ref" data-variant-action-ref="${escapeVariant(variant.id)}" data-action-id="${escapeVariant(variant.actionId)}" data-result-model="${escapeVariant(variant.resultModel)}"><code>${escapeVariant(variant.actionId)}</code><span>${escapeVariant(variant.label)} · ${escapeVariant(variant.resultModel)}</span></li>`).join('')}</ul></div>`;
+}
+
+function renderVariantEvidence(entry){
+  const rendered=entry.variants.filter(variant=>variant.proofKind==='rendered');
+  const stateBacked=entry.variants.filter(variant=>variant.proofKind==='canonical-state');
+  const responsiveBacked=entry.variants.filter(variant=>variant.proofKind==='responsive-backed');
+  const interactionBacked=entry.variants.filter(variant=>variant.proofKind==='interaction-backed');
+  const actionBacked=entry.variants.filter(variant=>variant.proofKind==='action-backed');
+  const choices=rendered.map((variant,index)=>`<button class="cx-variant-choice nbc-tactile" type="button" data-variant-choice="${escapeVariant(variant.id)}" aria-pressed="${index===0?'true':'false'}">${escapeVariant(variant.label)}</button>`).join('');
+  const renderedProof=rendered.length?`<div class="cx-variant-rendered-proof" data-variant-rendered-proof><div class="cx-variant-choices" role="group" aria-label="${escapeVariant(entry.id)} rendered variants">${choices}</div><div class="cx-variant-panel" data-variant-panel data-variant-current="${escapeVariant(rendered[0].id)}">${rendered[0].markup}</div></div>`:'';
+  const stateProof=stateBacked.length?renderStateBackedProof(entry,stateBacked):'';
+  const responsiveProof=responsiveBacked.length?renderResponsiveBackedProof(entry,responsiveBacked):'';
+  const interactionProof=interactionBacked.length?renderInteractionBackedProof(entry,interactionBacked):'';
+  const actionProof=actionBacked.length?renderActionBackedProof(entry,actionBacked):'';
+  return `<details class="cx-variant-evidence" data-component-variant-evidence data-variant-batch="${escapeVariant(entry.batchId)}"><summary><span>Variant proof</span><span>${entry.variants.length}/${entry.variants.length}</span></summary><div class="cx-variant-body">${renderedProof}${stateProof}${responsiveProof}${interactionProof}${actionProof}</div></details>`;
+}
+
+function validateStateBackedProof(card,entry){
+  const stateBacked=entry.variants.filter(variant=>variant.proofKind==='canonical-state');
+  if(!stateBacked.length)return;
+  const matrix=card.querySelector(`[data-state-matrix][data-component-state-id="${CSS.escape(entry.id)}"]`);
+  variantAssert(matrix,`canonical-state variant evidence missing live state matrix: ${entry.id}`);
+  const liveStateIds=[...matrix.querySelectorAll('[data-showcase-state]')].map(button=>button.dataset.showcaseState);
+  const referencedStateIds=stateBacked.map(variant=>variant.stateId);
+  for(const stateId of referencedStateIds)variantAssert(liveStateIds.includes(stateId),`canonical-state variant evidence references missing live state: ${entry.id}:${stateId}`);
+}
+
+function validateResponsiveBackedProof(card,entry){
+  const responsiveBacked=entry.variants.filter(variant=>variant.proofKind==='responsive-backed');
+  if(!responsiveBacked.length)return;
+  const preview=card.querySelector(`[data-preview-for="${CSS.escape(entry.id)}"]`);
+  variantAssert(preview,`responsive-backed variant evidence missing live preview: ${entry.id}`);
+  for(const variant of responsiveBacked){
+    for(const selector of variant.selectors)variantAssert(preview.querySelector(selector),`responsive-backed variant evidence missing live selector: ${entry.id}:${variant.id}:${selector}`);
+  }
+}
+
+function validateInteractionBackedProof(card,entry,interactionById){
+  const interactionBacked=entry.variants.filter(variant=>variant.proofKind==='interaction-backed');
+  if(!interactionBacked.length)return;
+  const preview=card.querySelector(`[data-preview-for="${CSS.escape(entry.id)}"]`);
+  variantAssert(preview,`interaction-backed variant evidence missing live preview: ${entry.id}`);
+  for(const variant of interactionBacked){
+    const interaction=interactionById.get(variant.interactionId);
+    variantAssert(interaction,`interaction-backed variant references unknown interaction: ${entry.id}:${variant.id}:${variant.interactionId}`);
+    variantAssert(interaction.states.includes(variant.interactionState),`interaction-backed variant references unsupported interaction state: ${entry.id}:${variant.id}:${variant.interactionState}`);
+    for(const selector of variant.selectors)variantAssert(preview.querySelector(selector),`interaction-backed variant evidence missing live selector: ${entry.id}:${variant.id}:${selector}`);
+  }
+}
+
+function validateActionBackedProof(card,entry,componentById){
+  const actionBacked=entry.variants.filter(variant=>variant.proofKind==='action-backed');
+  if(!actionBacked.length)return;
+  const preview=card.querySelector(`[data-preview-for="${CSS.escape(entry.id)}"]`);
+  variantAssert(preview,`action-backed variant evidence missing live preview: ${entry.id}`);
+  const component=componentById.get(entry.id);
+  variantAssert(component,`action-backed variant evidence missing frozen component contract: ${entry.id}`);
+  for(const variant of actionBacked){
+    variantAssert(component.actions.includes(variant.actionId),`action-backed variant references non-component action: ${entry.id}:${variant.id}:${variant.actionId}`);
+    variantAssert(component.models.includes(variant.resultModel),`action-backed variant references non-component result model: ${entry.id}:${variant.id}:${variant.resultModel}`);
+    for(const selector of variant.selectors)variantAssert(preview.querySelector(selector),`action-backed variant evidence missing live selector: ${entry.id}:${variant.id}:${selector}`);
+  }
+}
+
+function bindVariantEvidence(card,entry){
+  const details=card.querySelector('[data-component-variant-evidence]');
+  const panel=details.querySelector('[data-variant-panel]');
+  const choices=[...details.querySelectorAll('[data-variant-choice]')];
+  const rendered=new Map(entry.variants.filter(variant=>variant.proofKind==='rendered').map(variant=>[variant.id,variant]));
+  if(!choices.length)return;
+  variantAssert(panel,'rendered variant evidence missing panel: '+entry.id);
+  for(const choice of choices)choice.addEventListener('click',()=>{
+    const variant=rendered.get(choice.dataset.variantChoice);
+    variantAssert(variant,`unknown rendered variant choice: ${entry.id}:${choice.dataset.variantChoice}`);
+    for(const peer of choices)peer.setAttribute('aria-pressed',String(peer===choice));
+    panel.dataset.variantCurrent=variant.id;
+    panel.innerHTML=variant.markup;
+  });
+}
+
+function mergeVariantManifests(manifests){
+  variantAssert(Array.isArray(manifests)&&manifests.length>0,'component variant evidence requires at least one manifest');
+  const root=manifests[0];
+  for(const manifest of manifests){
+    variantAssert(manifest.schema===root.schema,'component variant evidence shard schema drifted');
+    variantAssert(manifest.showcaseVersion===root.showcaseVersion&&manifest.commerceVersion===root.commerceVersion,'component variant evidence shard version drifted');
+    variantAssert(manifest.role===root.role,'component variant evidence shard role drifted');
+    variantAssert(JSON.stringify(manifest.proofKinds)===JSON.stringify(root.proofKinds),'component variant evidence shard proof-kind contract drifted');
+  }
+  return {...root,batches:manifests.flatMap(manifest=>manifest.batches||[]),components:manifests.flatMap(manifest=>manifest.components||[])};
+}
+
+function validateManifest(manifest){
+  variantAssert(manifest.schema==='neobrutal-commerce/component-variant-evidence@4','unexpected component variant evidence schema');
+  variantAssert(manifest.showcaseVersion==='1.1.0'&&manifest.commerceVersion==='1.0.0','component variant evidence versions drifted');
+  variantAssert(manifest.role==='variant-evidence-only','component variant evidence must remain evidence only');
+  variantAssert(Array.isArray(manifest.batches)&&manifest.batches.length>0,'component variant evidence requires ordered batches');
+  variantAssert(Array.isArray(manifest.components)&&manifest.components.length>0,'component variant evidence requires component proof');
+  const batchIds=manifest.batches.map(batch=>batch.id);
+  variantAssert(new Set(batchIds).size===batchIds.length,'component variant evidence contains duplicate batch ids');
+  manifest.batches.forEach((batch,index)=>{
+    variantAssert(batch.ordinal===index+1,`component variant evidence batch ordinal drifted: ${batch.id}`);
+    variantAssert(Array.isArray(batch.componentIds)&&batch.componentIds.length>0,`component variant evidence batch has no members: ${batch.id}`);
+    variantAssert(new Set(batch.componentIds).size===batch.componentIds.length,`component variant evidence batch contains duplicate members: ${batch.id}`);
+  });
+  const componentIds=manifest.components.map(entry=>entry.id);
+  variantAssert(new Set(componentIds).size===componentIds.length,'component variant evidence contains duplicate component ids');
+  const batchedIds=manifest.batches.flatMap(batch=>batch.componentIds);
+  variantAssert(new Set(batchedIds).size===batchedIds.length,'component variant evidence batches overlap');
+  variantAssert(sameVariantIds(componentIds,batchedIds),'component variant evidence batch membership does not match component proof');
+  const batches=new Map(manifest.batches.map(batch=>[batch.id,batch]));
+  for(const entry of manifest.components){
+    const batch=batches.get(entry.batchId);
+    variantAssert(batch?.componentIds.includes(entry.id),`component variant evidence provenance drifted: ${entry.id}`);
+    variantAssert(Array.isArray(entry.variants)&&entry.variants.length>0,`component variant evidence missing variants: ${entry.id}`);
+    variantAssert(new Set(entry.variants.map(variant=>variant.id)).size===entry.variants.length,`duplicate variant id: ${entry.id}`);
+    for(const variant of entry.variants){
+      variantAssert(PROOF_KINDS.has(variant.proofKind),`unknown variant proof kind: ${entry.id}:${variant.id}:${variant.proofKind}`);
+      if(variant.proofKind==='rendered')variantAssert(typeof variant.markup==='string'&&variant.markup.trim(),`rendered variant evidence missing markup: ${entry.id}:${variant.id}`);
+      if(variant.proofKind==='canonical-state')variantAssert(typeof variant.stateId==='string'&&variant.stateId.trim(),`canonical-state variant evidence missing state id: ${entry.id}:${variant.id}`);
+      if(variant.proofKind==='responsive-backed'){
+        variantAssert(typeof variant.responsiveMode==='string'&&variant.responsiveMode.trim(),`responsive-backed variant evidence missing responsive mode: ${entry.id}:${variant.id}`);
+        variantAssert(['desktop','narrow'].includes(variant.viewport),`responsive-backed variant evidence uses unknown viewport: ${entry.id}:${variant.id}`);
+        variantAssert(Array.isArray(variant.selectors)&&variant.selectors.length>0&&variant.selectors.every(selector=>typeof selector==='string'&&selector.trim()),`responsive-backed variant evidence missing selectors: ${entry.id}:${variant.id}`);
+      }
+      if(variant.proofKind==='interaction-backed'){
+        variantAssert(typeof variant.interactionId==='string'&&variant.interactionId.trim(),`interaction-backed variant evidence missing interaction id: ${entry.id}:${variant.id}`);
+        variantAssert(typeof variant.interactionState==='string'&&variant.interactionState.trim(),`interaction-backed variant evidence missing interaction state: ${entry.id}:${variant.id}`);
+        variantAssert(Array.isArray(variant.selectors)&&variant.selectors.length>0&&variant.selectors.every(selector=>typeof selector==='string'&&selector.trim()),`interaction-backed variant evidence missing selectors: ${entry.id}:${variant.id}`);
+      }
+      if(variant.proofKind==='action-backed'){
+        variantAssert(typeof variant.actionId==='string'&&variant.actionId.trim(),`action-backed variant evidence missing action id: ${entry.id}:${variant.id}`);
+        variantAssert(typeof variant.resultModel==='string'&&variant.resultModel.trim(),`action-backed variant evidence missing result model: ${entry.id}:${variant.id}`);
+        variantAssert(Array.isArray(variant.selectors)&&variant.selectors.length>0&&variant.selectors.every(selector=>typeof selector==='string'&&selector.trim()),`action-backed variant evidence missing selectors: ${entry.id}:${variant.id}`);
+      }
+    }
+  }
+}
+
+async function initComponentVariantEvidence(){
+  try{
+    const [baseEvidenceResponse,accountEvidenceResponse,interactionsResponse,componentsResponse]=await Promise.all([
+      fetch(VARIANT_EVIDENCE_FILES[0],{cache:'no-store'}),
+      fetch(VARIANT_EVIDENCE_FILES[1],{cache:'no-store'}),
+      fetch('./storefront/interactions.json',{cache:'no-store'}),
+      fetch('./storefront/components.json',{cache:'no-store'})
+    ]);
+    if(!baseEvidenceResponse.ok)throw new Error(`Component variant evidence request failed: ${baseEvidenceResponse.status}`);
+    if(!accountEvidenceResponse.ok)throw new Error(`Account variant evidence request failed: ${accountEvidenceResponse.status}`);
+    if(!interactionsResponse.ok)throw new Error(`Interaction authority request failed: ${interactionsResponse.status}`);
+    if(!componentsResponse.ok)throw new Error(`Component authority request failed: ${componentsResponse.status}`);
+    const [baseManifest,accountManifest,interactions,components]=await Promise.all([baseEvidenceResponse.json(),accountEvidenceResponse.json(),interactionsResponse.json(),componentsResponse.json()]);
+    const manifest=mergeVariantManifests([baseManifest,accountManifest]);
+    validateManifest(manifest);
+    const totalVariants=manifest.components.reduce((sum,entry)=>sum+entry.variants.length,0);
+    const renderedVariants=manifest.components.reduce((sum,entry)=>sum+entry.variants.filter(variant=>variant.proofKind==='rendered').length,0);
+    const stateBackedVariants=manifest.components.reduce((sum,entry)=>sum+entry.variants.filter(variant=>variant.proofKind==='canonical-state').length,0);
+    const responsiveBackedVariants=manifest.components.reduce((sum,entry)=>sum+entry.variants.filter(variant=>variant.proofKind==='responsive-backed').length,0);
+    const interactionBackedVariants=manifest.components.reduce((sum,entry)=>sum+entry.variants.filter(variant=>variant.proofKind==='interaction-backed').length,0);
+    const actionBackedVariants=manifest.components.reduce((sum,entry)=>sum+entry.variants.filter(variant=>variant.proofKind==='action-backed').length,0);
+    variantAssert(totalVariants===renderedVariants+stateBackedVariants+responsiveBackedVariants+interactionBackedVariants+actionBackedVariants,'component variant evidence proof-kind counts do not reconcile');
+    await waitForVariantShowcase();
+    const cards=[...document.querySelectorAll('[data-component-card]')];
+    variantAssert(cards.length===47,'component variant evidence requires 47 rendered component cards');
+    const evidenceById=new Map(manifest.components.map(entry=>[entry.id,entry]));
+    const interactionById=new Map((interactions.patterns||[]).map(entry=>[entry.id,entry]));
+    const componentById=new Map((components.components||[]).map(entry=>[entry.id,entry]));
+    for(const card of cards){
+      const entry=evidenceById.get(card.dataset.componentId);
+      card.dataset.demoVariantEvidence=String(Boolean(entry));
+      card.querySelector('[data-component-variant-evidence]')?.remove();
+      if(!entry)continue;
+      validateStateBackedProof(card,entry);
+      validateResponsiveBackedProof(card,entry);
+      validateInteractionBackedProof(card,entry,interactionById);
+      validateActionBackedProof(card,entry,componentById);
+      const contract=card.querySelector('.cx-contract');
+      variantAssert(contract,`component variant evidence missing contract panel: ${entry.id}`);
+      contract.insertAdjacentHTML('beforeend',renderVariantEvidence(entry));
+      bindVariantEvidence(card,entry);
+    }
+    document.documentElement.dataset.componentVariantReady='true';
+    document.documentElement.dataset.componentVariantAudited=String(evidenceById.size);
+    document.documentElement.dataset.componentVariantCount=String(totalVariants);
+    document.documentElement.dataset.componentVariantRenderedCount=String(renderedVariants);
+    document.documentElement.dataset.componentVariantStateBackedCount=String(stateBackedVariants);
+    document.documentElement.dataset.componentVariantResponsiveBackedCount=String(responsiveBackedVariants);
+    document.documentElement.dataset.componentVariantInteractionBackedCount=String(interactionBackedVariants);
+    document.documentElement.dataset.componentVariantActionBackedCount=String(actionBackedVariants);
+    document.documentElement.dataset.componentVariantBatches=String(manifest.batches.length);
+  }catch(error){
+    document.documentElement.dataset.componentVariantReady='error';
+    console.error(error);
+  }
+}
+
+initComponentVariantEvidence();
