@@ -104,11 +104,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/NeoBrutalism-shop/NeoBrutal-Commerce.git"
+    "url": "git+https://github.com/NeoBrutalismshop/NeoBrutal-Commerce.git"
   },
-  "homepage": "https://github.com/NeoBrutalism-shop/NeoBrutal-Commerce#readme",
+  "homepage": "https://github.com/NeoBrutalismshop/NeoBrutal-Commerce#readme",
   "bugs": {
-    "url": "https://github.com/NeoBrutalism-shop/NeoBrutal-Commerce/issues"
+    "url": "https://github.com/NeoBrutalismshop/NeoBrutal-Commerce/issues"
   },
   "keywords": [
     "neobrutalism",

@@ -21,7 +21,7 @@ jobs:
 
       - name: Verify permanent GitHub Pages surfaces and production routes
         env:
-          BASE_URL: https://neobrutalism-shop.github.io/NeoBrutal-Commerce
+          BASE_URL: https://neobrutalismshop.github.io/NeoBrutal-Commerce
         run: |
           node --input-type=module <<'NODE'
           import { readFile } from 'node:fs/promises';

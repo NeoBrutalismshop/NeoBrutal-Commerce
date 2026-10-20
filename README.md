@@ -10,15 +10,15 @@ Ordinary interactive surfaces move **into** their depth on hover/press. They do 
 
 ## Live surfaces
 
-**[Open the NeoBrutal Commerce flagship →](https://neobrutalism-shop.github.io/NeoBrutal-Commerce/)**
+**[Open the NeoBrutal Commerce flagship →](https://neobrutalismshop.github.io/NeoBrutal-Commerce/)**
 
-**[Browse the interactive component + block explorer →](https://neobrutalism-shop.github.io/NeoBrutal-Commerce/components.html)**
+**[Browse the interactive component + block explorer →](https://neobrutalismshop.github.io/NeoBrutal-Commerce/components.html)**
 
-**[Open the Commerce v1.2 Page Lab →](https://neobrutalism-shop.github.io/NeoBrutal-Commerce/demo/v10.html)**
+**[Open the Commerce v1.2 Page Lab →](https://neobrutalismshop.github.io/NeoBrutal-Commerce/demo/v10.html)**
 
-**[Open the Motion & Interaction Lab →](https://neobrutalism-shop.github.io/NeoBrutal-Commerce/demo/v13.html)**
+**[Open the Motion & Interaction Lab →](https://neobrutalismshop.github.io/NeoBrutal-Commerce/demo/v13.html)**
 
-**[Open the Agent Execution Lab →](https://neobrutalism-shop.github.io/NeoBrutal-Commerce/demo/v14.html)**
+**[Open the Agent Execution Lab →](https://neobrutalismshop.github.io/NeoBrutal-Commerce/demo/v14.html)**
 
 The public surfaces use the actual Commerce CSS, machine-readable contracts, and real production behavior. They are covered by the same browser, interaction, responsive, and axe/WCAG quality gates as the shipping storefront rather than maintained as screenshot-only documentation.
 
@@ -219,7 +219,7 @@ No known failing commerce journey or documentation-surface interaction is accept
 
 The permanent GitHub Pages origin is:
 
-`https://neobrutalism-shop.github.io/NeoBrutal-Commerce/`
+`https://neobrutalismshop.github.io/NeoBrutal-Commerce/`
 
 Any future custom domain is an alias, not the source of truth. The repository and GitHub Pages URLs remain the durable public home so the design system stays available even if domains or hosting vendors change.
 

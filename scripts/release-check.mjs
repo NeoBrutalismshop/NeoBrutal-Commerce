@@ -26,7 +26,7 @@ if(snapshot.frozenFrom!=='0.9.0-rc.1')fail(`v1 freeze baseline must remain 0.9.0
 if(snapshot.candidate!==version)fail(`v1 freeze candidate must be ${version}, received ${snapshot.candidate}`);
 if(pkg.version!==version||pkg.private!==false)fail('package must be exact public v1.0.0');
 if(pkg.license!=='PolyForm-Noncommercial-1.0.0')fail('v1 license must use the exact SPDX PolyForm Noncommercial identifier');
-if(pkg.repository?.url!=='git+https://github.com/NeoBrutalism-shop/NeoBrutal-Commerce.git')fail('package repository metadata is not canonical');
+if(pkg.repository?.url!=='git+https://github.com/NeoBrutalismshop/NeoBrutal-Commerce.git')fail('package repository metadata is not canonical');
 if(pkg.publishConfig?.access!=='public'||pkg.publishConfig?.provenance!==true)fail('public/provenance publishConfig is incomplete');
 const expectedFiles=['src','storefront/catalog.json','storefront/routes.json','storefront/states.json','storefront/components.json','AGENTS.md','LLMS.md','COMPONENTS.md','DESIGN.md','docs','README.md','CHANGELOG.md','LICENSE.md'];
 same('package files allowlist',pkg.files||[],expectedFiles);
