@@ -5,10 +5,10 @@ import {spawnSync} from 'node:child_process';
 const root=process.cwd();
 const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
 const fail=message=>{console.error(`v1.0 package: ${message}`);process.exit(1)};
-const packed=spawnSync('npm',['pack','--dry-run','--json','--ignore-scripts'],{cwd:root,encoding:'utf8'});
+const packed=spawnSync('npm',['pack','--dry-run','--json','--ignore-scripts'],{cwd:root,encoding:'utf8',shell:process.platform==='win32'});
 if(packed.status!==0)fail(`npm pack dry-run failed: ${packed.stderr||packed.stdout}`);
 let report;try{report=JSON.parse(packed.stdout)}catch{fail('npm pack --json did not return parseable JSON')}
-const entry=report?.[0];
+const entry=Array.isArray(report)?report[0]:report?.[pkg.name];
 if(!entry)fail('npm pack returned no package report');
 if(entry.name!=='@neobrutal/commerce'||entry.version!=='1.0.0')fail(`unexpected pack identity ${entry.name}@${entry.version}`);
 const files=new Set((entry.files||[]).map(file=>file.path));
